@@ -1,0 +1,19 @@
+# docker-compose.yml
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8
+    container_name: workflow-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: workflow_db
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
