@@ -83,6 +83,7 @@ export interface WorkflowRun {
   id: string;
   workflow_id: string;
   status: string;
+  message: string;
   started_at: string;
   finished_at: string | null;
 }
@@ -111,4 +112,105 @@ export async function getRunLogs(runId: string): Promise<NodeLog[]> {
   if (!res.ok) throw new Error("Failed to fetch run logs");
   const data = await res.json();
   return data ?? [];
+}
+
+// ---- Integrations ----
+
+export interface Integration {
+  id: string;
+  type: string;
+  name: string;
+  config: Record<string, string>;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getIntegrations(): Promise<Integration[]> {
+  const res = await fetch(`${API_BASE}/integrations`);
+  if (!res.ok) throw new Error("Failed to fetch integrations");
+  const data = await res.json();
+  return data ?? [];
+}
+
+export async function getIntegration(type: string): Promise<Integration> {
+  const res = await fetch(`${API_BASE}/integrations/${type}`);
+  if (!res.ok) throw new Error("Integration not found");
+  return res.json();
+}
+
+export async function upsertIntegration(
+  type: string,
+  name: string,
+  config: Record<string, string>,
+): Promise<{ id: string }> {
+  const res = await fetch(`${API_BASE}/integrations/${type}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, config }),
+  });
+  if (!res.ok) throw new Error("Failed to save integration");
+  return res.json();
+}
+
+export async function deleteIntegration(type: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/integrations/${type}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete integration");
+}
+
+// ---- Webhook Events ----
+
+export interface WebhookEvent {
+  id: string;
+  source: string;
+  event_type: string;
+  payload: unknown;
+  processed: boolean;
+  workflow_run_id: string | null;
+  created_at: string;
+}
+
+export async function getWebhookEvents(): Promise<WebhookEvent[]> {
+  const res = await fetch(`${API_BASE}/webhook-events`);
+  if (!res.ok) throw new Error("Failed to fetch webhook events");
+  const data = await res.json();
+  return data ?? [];
+}
+
+// ---- Run workflow ----
+
+export async function runWorkflow(
+  id: string,
+  input?: unknown,
+): Promise<{ run_id: string }> {
+  const res = await fetch(`${API_BASE}/workflows/${id}/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ input: input ?? {} }),
+  });
+  if (!res.ok) throw new Error("Failed to run workflow");
+  return res.json();
+}
+
+// ---- Dry-run a single node (no DB records) ----
+
+export interface DryRunResult {
+  success: boolean;
+  error: string | null;
+  output: unknown;
+}
+
+export async function dryRunNode(
+  nodeType: string,
+  data: Record<string, unknown>,
+  input: unknown,
+): Promise<DryRunResult> {
+  const res = await fetch(`${API_BASE}/nodes/dry-run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ node_type: nodeType, data, input }),
+  });
+  if (!res.ok) throw new Error("Dry-run request failed");
+  return res.json();
 }

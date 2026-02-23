@@ -8,10 +8,12 @@ import {
 
 interface WorkflowListingProps {
   onOpenWorkflow: (workflowId: string) => void;
+  onOpenSettings: () => void;
 }
 
 export default function WorkflowListing({
   onOpenWorkflow,
+  onOpenSettings,
 }: WorkflowListingProps) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +73,9 @@ export default function WorkflowListing({
       <div className="listing-page">
         <div className="listing-header">
           <h1>Workflows</h1>
+          <button className="settings-btn" onClick={onOpenSettings}>
+            ⚙️ Integrations
+          </button>
         </div>
         <div className="empty-state">
           <div className="empty-icon">🔧</div>
@@ -88,9 +93,14 @@ export default function WorkflowListing({
     <div className="listing-page">
       <div className="listing-header">
         <h1>Workflows</h1>
-        <button className="create-btn primary" onClick={handleCreate}>
-          ＋ Create Workflow
-        </button>
+        <div className="listing-header-actions">
+          <button className="settings-btn" onClick={onOpenSettings}>
+            ⚙️ Integrations
+          </button>
+          <button className="create-btn primary" onClick={handleCreate}>
+            ＋ Create Workflow
+          </button>
+        </div>
       </div>
 
       {loading ? (

@@ -580,6 +580,102 @@ body {
   transform: translateY(0);
 }
 
+.start-node-info {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.start-node-info .start-node-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.start-node-info h4 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1c1f23;
+  margin: 0 0 12px 0;
+}
+
+.start-node-info p {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.6;
+  margin: 0 0 8px 0;
+}
+
+.config-node-id {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 400;
+  font-family: "Monaco", "Menlo", monospace;
+}
+
+.config-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 24px 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(28, 31, 35, 0.08);
+}
+
+.config-section-title:first-of-type {
+  margin-top: 8px;
+}
+
+.checkbox-label {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400 !important;
+  font-size: 13px !important;
+  margin-bottom: 6px !important;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: auto !important;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #4e40e5;
+}
+
+.register-webhook-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #0052cc;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  margin-top: 12px;
+}
+
+.register-webhook-btn:hover:not(:disabled) {
+  background: #0747a6;
+  transform: translateY(-1px);
+}
+
+.register-webhook-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.register-result {
+  margin-top: 8px;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+}
+
 /* ==================== Workflow Listing Page ==================== */
 
 .listing-page {
@@ -833,4 +929,213 @@ body {
   background: #f9fafb;
   border: 1px solid rgba(28, 31, 35, 0.08);
   text-align: center;
+}
+
+/* ==================== Listing Header Actions ==================== */
+
+.listing-header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.settings-btn {
+  padding: 10px 20px;
+  border: 1px solid rgba(28, 31, 35, 0.15);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  background: #fff;
+  color: #1c1f23;
+  transition: all 0.2s ease;
+}
+
+.settings-btn:hover {
+  background: #f9fafb;
+  border-color: #4e40e5;
+  color: #4e40e5;
+}
+
+/* ==================== Integration Settings Page ==================== */
+
+.settings-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px;
+  min-height: 100vh;
+  background: #f7f7fa;
+}
+
+.settings-header {
+  margin-bottom: 32px;
+}
+
+.settings-header .back-btn {
+  width: auto;
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+.settings-header h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1c1f23;
+}
+
+.settings-subtitle {
+  margin: 0;
+  color: #6b7280;
+  font-size: 15px;
+}
+
+.settings-loading {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+}
+
+.integration-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.integration-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(28, 31, 35, 0.06);
+  background: #f9fafb;
+}
+
+.integration-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.integration-title h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1c1f23;
+}
+
+.integration-icon {
+  font-size: 24px;
+}
+
+.integration-card-body {
+  padding: 24px;
+}
+
+.integration-card-body .form-group {
+  margin-bottom: 20px;
+}
+
+.integration-card-body .form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c1f23;
+}
+
+.integration-card-body .form-group input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(28, 31, 35, 0.15);
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.integration-card-body .form-group input:focus {
+  outline: none;
+  border-color: #4e40e5;
+  box-shadow: 0 0 0 3px rgba(78, 64, 229, 0.1);
+}
+
+.field-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+.field-hint a {
+  color: #4e40e5;
+  text-decoration: none;
+}
+
+.field-hint a:hover {
+  text-decoration: underline;
+}
+
+.field-hint code {
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.save-integration-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #4e40e5;
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(78, 64, 229, 0.25);
+}
+
+.save-integration-btn:hover:not(:disabled) {
+  background: #4334d6;
+  transform: translateY(-1px);
+}
+
+.save-integration-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.webhook-info {
+  margin-top: 24px;
+  padding: 16px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+}
+
+.webhook-info h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #0c4a6e;
+}
+
+.webhook-info p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #0369a1;
+}
+
+.webhook-url {
+  display: block;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: "Monaco", "Menlo", monospace;
+  color: #0c4a6e;
+  word-break: break-all;
 }
