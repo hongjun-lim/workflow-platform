@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -975,6 +976,14 @@ func executeJiraCreateIssue(data map[string]interface{}, input json.RawMessage) 
 
 // buildJiraIssuePayload constructs the Jira issue creation payload
 func buildJiraIssuePayload(data map[string]interface{}, inputMap map[string]interface{}) (map[string]interface{}, string, error) {
+	jiraMode, _ := data["jira_mode"].(string)
+
+	// Advanced mode: use raw_payload directly
+	if jiraMode == "advanced" {
+		return buildJiraRawPayload(data, inputMap)
+	}
+
+	// Basic mode: build from individual fields
 	projectKey, _ := data["project_key"].(string)
 	summary, _ := data["summary"].(string)
 	description, _ := data["description"].(string)
@@ -1037,6 +1046,42 @@ func addJiraOptionalFields(fields map[string]interface{}, data map[string]interf
 			fields["labels"] = labels
 		}
 	}
+}
+
+// buildJiraRawPayload parses the user's raw JSON payload, applies template
+// substitution, and auto-converts plain-string descriptions to ADF.
+func buildJiraRawPayload(data map[string]interface{}, inputMap map[string]interface{}) (map[string]interface{}, string, error) {
+	rawPayload, _ := data["raw_payload"].(string)
+	if rawPayload == "" {
+		return nil, "", fmt.Errorf("Jira Create Issue (Advanced): raw_payload is empty")
+	}
+
+	// Apply template replacement on the raw JSON string before parsing
+	rawPayload = templateReplace(rawPayload, inputMap)
+
+	// Strip JS-style comment lines (lines starting with //)
+	commentRegex := regexp.MustCompile(`(?m)^\s*//.*$`)
+	rawPayload = commentRegex.ReplaceAllString(rawPayload, "")
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(rawPayload), &payload); err != nil {
+		return nil, "", fmt.Errorf("Jira Create Issue (Advanced): invalid JSON in raw_payload: %v", err)
+	}
+
+	// Extract project key for logging
+	projectKey := ""
+	if fields, ok := payload["fields"].(map[string]interface{}); ok {
+		if proj, ok := fields["project"].(map[string]interface{}); ok {
+			projectKey, _ = proj["key"].(string)
+		}
+
+		// Auto-convert plain string description to ADF
+		if desc, ok := fields["description"].(string); ok {
+			fields["description"] = convertTextToADF(desc)
+		}
+	}
+
+	return payload, projectKey, nil
 }
 
 // convertTextToADF converts plain text to Atlassian Document Format (ADF)
