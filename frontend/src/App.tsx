@@ -63,6 +63,7 @@ const WorkflowEditor = ({ workflowId, onBack }: WorkflowEditorProps) => {
   const [selectedNode, setSelectedNode] = useState<FlowNodeEntity | null>(null);
   const [dryRunNode, setDryRunNode] = useState<FlowNodeEntity | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
   const [loadedData, setLoadedData] = useState<WorkflowJSON | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -162,19 +163,21 @@ const WorkflowEditor = ({ workflowId, onBack }: WorkflowEditorProps) => {
         edges,
         status: workflowStatusRef.current,
       });
+      setHasChanges(false);
     } catch (err) {
-      console.error("Auto-save failed:", err);
+      console.error("Save failed:", err);
+      alert("Failed to save workflow");
     } finally {
       setIsSaving(false);
     }
   }, [workflowId]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      saveToApi();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [saveToApi]);
+  // Track changes to workflow
+  const markAsChanged = useCallback(() => {
+    setHasChanges(true);
+  }, []);
+  const markAsChangedRef = useRef(markAsChanged);
+  markAsChangedRef.current = markAsChanged;
 
   // Publish workflow
   const handlePublish = useCallback(async () => {
@@ -267,6 +270,7 @@ const WorkflowEditor = ({ workflowId, onBack }: WorkflowEditorProps) => {
       console.log("Saving nodes with data:", JSON.stringify(nodes, null, 2));
 
       try {
+        setIsSaving(true);
         await updateWorkflow(workflowId, {
           name: workflowNameRef.current,
           description: "",
@@ -277,6 +281,8 @@ const WorkflowEditor = ({ workflowId, onBack }: WorkflowEditorProps) => {
         console.log("Node configuration saved successfully");
       } catch (err) {
         console.error("Failed to save node configuration:", err);
+      } finally {
+        setIsSaving(false);
       }
     }
   };
@@ -324,8 +330,6 @@ const WorkflowEditor = ({ workflowId, onBack }: WorkflowEditorProps) => {
         }
       },
       onNodeDoubleClick: (node: FlowNodeEntity) => {
-        const type = String(node.getNodeRegistry?.()?.type || "");
-        if (type === "start") return;
         setSelectedNode(node);
       },
       materials: {
@@ -340,8 +344,14 @@ const WorkflowEditor = ({ workflowId, onBack }: WorkflowEditorProps) => {
             : ["input"],
         output: node.type === "end" ? undefined : ["output"],
       })),
-      canDeleteNode: () => true,
-      canDeleteLine: () => true,
+      canDeleteNode: () => {
+        markAsChangedRef.current();
+        return true;
+      },
+      canDeleteLine: () => {
+        markAsChangedRef.current();
+        return true;
+      },
       nodeEngine: { enable: true },
       history: { enable: true, enableChangeNode: true },
       getNodeDefaultRegistry(type) {
@@ -376,16 +386,26 @@ const WorkflowEditor = ({ workflowId, onBack }: WorkflowEditorProps) => {
   return (
     <div className="app">
       <NodeSelectionContext.Provider
-        value={{ setSelectedNode, openDryRun: (n) => setDryRunNode(n) }}
+        value={{
+          setSelectedNode,
+          openDryRun: (n) => setDryRunNode(n),
+          markAsChanged,
+        }}
       >
         <FreeLayoutEditorProvider {...editorProps}>
           <EditorSidebar
             workflowName={workflowName}
-            setWorkflowName={setWorkflowName}
+            setWorkflowName={(name) => {
+              setWorkflowName(name);
+              markAsChanged();
+            }}
+            workflowStatus={workflowStatus}
             runs={runs}
             selectedRun={selectedRun}
             logs={logs}
             isSaving={isSaving}
+            hasChanges={hasChanges}
+            onSave={saveToApi}
             onPublish={handlePublish}
             onBack={onBack}
             onTestRun={handleTestRun}

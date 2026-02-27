@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -19,6 +20,60 @@ import (
 )
 
 var db *sql.DB
+
+// ==================== Jira Account ID Cache ====================
+
+var (
+	jiraAccountIDCache   string
+	jiraAccountIDExpiry  time.Time
+	jiraAccountIDMu      sync.Mutex
+)
+
+// getJiraAccountID returns the accountId of the Jira integration user, cached for 1 hour.
+func getJiraAccountID() string {
+	jiraAccountIDMu.Lock()
+	defer jiraAccountIDMu.Unlock()
+
+	if jiraAccountIDCache != "" && time.Now().Before(jiraAccountIDExpiry) {
+		return jiraAccountIDCache
+	}
+
+	config, err := loadIntegrationConfig("jira")
+	if err != nil {
+		return ""
+	}
+	domain, _ := config["domain"].(string)
+	email, _ := config["email"].(string)
+	token, _ := config["api_token"].(string)
+	if domain == "" || email == "" || token == "" {
+		return ""
+	}
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("https://%s/rest/api/3/myself", domain), nil)
+	if err != nil {
+		return ""
+	}
+	req.SetBasicAuth(email, token)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	var user struct {
+		AccountID string `json:"accountId"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil || user.AccountID == "" {
+		return ""
+	}
+
+	jiraAccountIDCache = user.AccountID
+	jiraAccountIDExpiry = time.Now().Add(1 * time.Hour)
+	log.Printf("🔑 Cached Jira account ID: %s", jiraAccountIDCache)
+	return jiraAccountIDCache
+}
 
 // ==================== Constants ====================
 
@@ -33,14 +88,17 @@ const (
 // ==================== Models ====================
 
 type Workflow struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Nodes       json.RawMessage `json:"nodes"`
-	Edges       json.RawMessage `json:"edges"`
-	Status      string          `json:"status"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	ID           string          `json:"id"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description"`
+	Nodes        json.RawMessage `json:"nodes"`
+	Edges        json.RawMessage `json:"edges"`
+	Status       string          `json:"status"`
+	TriggerType  string          `json:"trigger_type"`
+	CronSchedule *string         `json:"cron_schedule"`
+	LastCronRun  *time.Time      `json:"last_cron_run"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
 type WorkflowRun struct {
@@ -140,6 +198,9 @@ func main() {
 
 		// Webhook events log
 		api.GET("/webhook-events", getWebhookEvents)
+
+		// Workflow trigger settings
+		api.PUT("/workflows/:id/trigger", updateWorkflowTrigger)
 	}
 
 	// Webhook receivers (public endpoints — no /api prefix)
@@ -149,6 +210,9 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
+	// Start the cron scheduler in the background
+	go cronScheduler()
+
 	log.Println("Server running on http://localhost:8081")
 	r.Run(":8081")
 }
@@ -156,7 +220,7 @@ func main() {
 // ==================== Workflow CRUD ====================
 
 func getWorkflows(c *gin.Context) {
-	rows, err := db.Query("SELECT id, name, description, nodes, edges, status, created_at, updated_at FROM workflows ORDER BY created_at DESC")
+	rows, err := db.Query("SELECT id, name, description, nodes, edges, status, trigger_type, cron_schedule, last_cron_run, created_at, updated_at FROM workflows ORDER BY created_at DESC")
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -166,7 +230,7 @@ func getWorkflows(c *gin.Context) {
 	var workflows []Workflow
 	for rows.Next() {
 		var w Workflow
-		if err := rows.Scan(&w.ID, &w.Name, &w.Description, &w.Nodes, &w.Edges, &w.Status, &w.CreatedAt, &w.UpdatedAt); err != nil {
+		if err := rows.Scan(&w.ID, &w.Name, &w.Description, &w.Nodes, &w.Edges, &w.Status, &w.TriggerType, &w.CronSchedule, &w.LastCronRun, &w.CreatedAt, &w.UpdatedAt); err != nil {
 			continue
 		}
 		workflows = append(workflows, w)
@@ -177,8 +241,8 @@ func getWorkflows(c *gin.Context) {
 func getWorkflow(c *gin.Context) {
 	id := c.Param("id")
 	var w Workflow
-	err := db.QueryRow("SELECT id, name, description, nodes, edges, status, created_at, updated_at FROM workflows WHERE id = ?", id).
-		Scan(&w.ID, &w.Name, &w.Description, &w.Nodes, &w.Edges, &w.Status, &w.CreatedAt, &w.UpdatedAt)
+	err := db.QueryRow("SELECT id, name, description, nodes, edges, status, trigger_type, cron_schedule, last_cron_run, created_at, updated_at FROM workflows WHERE id = ?", id).
+		Scan(&w.ID, &w.Name, &w.Description, &w.Nodes, &w.Edges, &w.Status, &w.TriggerType, &w.CronSchedule, &w.LastCronRun, &w.CreatedAt, &w.UpdatedAt)
 	if err == sql.ErrNoRows {
 		c.JSON(404, gin.H{"error": "Workflow not found"})
 		return
@@ -235,7 +299,60 @@ func updateWorkflow(c *gin.Context) {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Sync trigger settings from start node data to workflow columns
+	syncTriggerFromStartNode(id, req.Nodes)
+
 	c.JSON(200, gin.H{"message": "Workflow updated"})
+}
+
+// syncTriggerFromStartNode extracts trigger_type and cron_schedule from the
+// start node's data and syncs them to the workflow-level columns so the cron
+// scheduler can pick them up efficiently.
+func syncTriggerFromStartNode(workflowID string, nodesJSON json.RawMessage) {
+	var nodes []struct {
+		Type string                 `json:"type"`
+		Data map[string]interface{} `json:"data"`
+	}
+	if err := json.Unmarshal(nodesJSON, &nodes); err != nil {
+		return
+	}
+
+	// Check if workflow has a jira_webhook node (for auto-detection)
+	hasWebhookNode := false
+	for _, n := range nodes {
+		if n.Type == "jira_webhook" {
+			hasWebhookNode = true
+			break
+		}
+	}
+
+	for _, n := range nodes {
+		if n.Type == "start" {
+			triggerType, _ := n.Data["trigger_type"].(string)
+			cronSchedule, _ := n.Data["cron_schedule"].(string)
+
+			// Auto-detect: if no explicit trigger_type but has webhook node, use "trigger"
+			if triggerType == "" {
+				if hasWebhookNode {
+					triggerType = "trigger"
+				} else {
+					triggerType = "schedule"
+				}
+			}
+
+			var cronPtr *string
+			if triggerType == "schedule" && cronSchedule != "" {
+				cronPtr = &cronSchedule
+			}
+
+			db.Exec(
+				"UPDATE workflows SET trigger_type = ?, cron_schedule = ? WHERE id = ?",
+				triggerType, cronPtr, workflowID,
+			)
+			return
+		}
+	}
 }
 
 func deleteWorkflow(c *gin.Context) {
@@ -246,6 +363,204 @@ func deleteWorkflow(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"message": "Workflow deleted"})
+}
+
+// updateWorkflowTrigger sets the trigger type and cron schedule for a workflow
+func updateWorkflowTrigger(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		TriggerType  string  `json:"trigger_type"`
+		CronSchedule *string `json:"cron_schedule"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate trigger_type
+	if req.TriggerType != "manual" && req.TriggerType != "cron" && req.TriggerType != "webhook" {
+		c.JSON(400, gin.H{"error": "trigger_type must be 'manual', 'cron', or 'webhook'"})
+		return
+	}
+
+	// Validate cron schedule if type is cron
+	if req.TriggerType == "cron" {
+		if req.CronSchedule == nil || *req.CronSchedule == "" {
+			c.JSON(400, gin.H{"error": "cron_schedule is required when trigger_type is 'cron'"})
+			return
+		}
+		if !isValidCronSchedule(*req.CronSchedule) {
+			c.JSON(400, gin.H{"error": "Invalid cron schedule format"})
+			return
+		}
+	}
+
+	_, err := db.Exec(
+		"UPDATE workflows SET trigger_type = ?, cron_schedule = ? WHERE id = ?",
+		req.TriggerType, req.CronSchedule, id,
+	)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"message": "Trigger updated"})
+}
+
+// isValidCronSchedule does basic validation of cron expressions
+// Supports: predefined (@every 5m, @hourly, @daily) and standard 5-field cron
+func isValidCronSchedule(schedule string) bool {
+	schedule = strings.TrimSpace(schedule)
+	if schedule == "" {
+		return false
+	}
+	// Accept predefined shortcuts
+	if strings.HasPrefix(schedule, "@every ") || schedule == "@hourly" ||
+		schedule == "@daily" || schedule == "@weekly" || schedule == "@monthly" {
+		return true
+	}
+	// Standard 5-field cron: must have exactly 5 fields
+	fields := strings.Fields(schedule)
+	return len(fields) == 5
+}
+
+// ==================== Cron Scheduler ====================
+
+// cronScheduler runs every 60 seconds and checks for cron-triggered workflows
+func cronScheduler() {
+	log.Println("🕐 Cron scheduler started")
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		checkAndRunCronWorkflows()
+	}
+}
+
+func checkAndRunCronWorkflows() {
+	rows, err := db.Query(
+		"SELECT id, name, nodes, edges, cron_schedule, last_cron_run FROM workflows WHERE status = 'active' AND trigger_type = 'schedule' AND cron_schedule IS NOT NULL",
+	)
+	if err != nil {
+		log.Printf("Cron scheduler query failed: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	now := time.Now()
+
+	for rows.Next() {
+		var w Workflow
+		if err := rows.Scan(&w.ID, &w.Name, &w.Nodes, &w.Edges, &w.CronSchedule, &w.LastCronRun); err != nil {
+			continue
+		}
+
+		if w.CronSchedule == nil {
+			continue
+		}
+
+		if shouldRunCron(*w.CronSchedule, w.LastCronRun, now) {
+			log.Printf("🕐 Cron triggering workflow '%s' (id=%s, schedule=%s)", w.Name, w.ID, *w.CronSchedule)
+
+			runID := uuid.New().String()
+			db.Exec(
+				"INSERT INTO workflow_runs (id, workflow_id, status, input) VALUES (?, ?, 'running', '{}')",
+				runID, w.ID,
+			)
+			db.Exec("UPDATE workflows SET last_cron_run = ? WHERE id = ?", now, w.ID)
+
+			go executeWorkflow(runID, w, json.RawMessage(`{}`))
+		}
+	}
+}
+
+// shouldRunCron determines if a cron workflow should run based on its schedule
+func shouldRunCron(schedule string, lastRun *time.Time, now time.Time) bool {
+	schedule = strings.TrimSpace(schedule)
+
+	// Handle @every syntax: @every 5m, @every 1h, @every 30s
+	if strings.HasPrefix(schedule, "@every ") {
+		durationStr := strings.TrimPrefix(schedule, "@every ")
+		d, err := time.ParseDuration(durationStr)
+		if err != nil {
+			return false
+		}
+		if lastRun == nil {
+			return true // Never ran before
+		}
+		return now.Sub(*lastRun) >= d
+	}
+
+	// Handle predefined shortcuts
+	var interval time.Duration
+	switch schedule {
+	case "@hourly":
+		interval = time.Hour
+	case "@daily":
+		interval = 24 * time.Hour
+	case "@weekly":
+		interval = 7 * 24 * time.Hour
+	case "@monthly":
+		interval = 30 * 24 * time.Hour
+	default:
+		// Standard 5-field cron expression
+		return shouldRunStandardCron(schedule, lastRun, now)
+	}
+
+	if lastRun == nil {
+		return true
+	}
+	return now.Sub(*lastRun) >= interval
+}
+
+// shouldRunStandardCron handles standard 5-field cron: min hour dom month dow
+func shouldRunStandardCron(schedule string, lastRun *time.Time, now time.Time) bool {
+	fields := strings.Fields(schedule)
+	if len(fields) != 5 {
+		return false
+	}
+
+	minute := fields[0]
+	hour := fields[1]
+	// fields[2] = day of month, fields[3] = month, fields[4] = day of week (not fully implemented yet)
+
+	// Check if current minute+hour matches the cron pattern
+	if !cronFieldMatches(minute, now.Minute()) {
+		return false
+	}
+	if !cronFieldMatches(hour, now.Hour()) {
+		return false
+	}
+
+	// Don't run again if already ran this minute
+	if lastRun != nil && lastRun.Truncate(time.Minute).Equal(now.Truncate(time.Minute)) {
+		return false
+	}
+
+	return true
+}
+
+// cronFieldMatches checks if a cron field matches a value
+// Supports: * (any), exact number, */interval
+func cronFieldMatches(field string, value int) bool {
+	if field == "*" {
+		return true
+	}
+
+	// */interval pattern
+	if strings.HasPrefix(field, "*/") {
+		intervalStr := strings.TrimPrefix(field, "*/")
+		interval := 0
+		fmt.Sscanf(intervalStr, "%d", &interval)
+		if interval > 0 {
+			return value%interval == 0
+		}
+		return false
+	}
+
+	// Exact match
+	var expected int
+	fmt.Sscanf(field, "%d", &expected)
+	return value == expected
 }
 
 // ==================== Integrations CRUD ====================
@@ -439,6 +754,18 @@ func registerJiraWebhook(c *gin.Context) {
 // ==================== Jira Webhook Receiver ====================
 
 func handleJiraWebhook(c *gin.Context) {
+	// Check if this webhook was triggered by our own integration account (loop prevention)
+	// Jira appends ?triggeredByUser=<accountId> when the action was done via automation/API
+	triggeredByUser := c.Query("triggeredByUser")
+	if triggeredByUser != "" {
+		ownAccountID := getJiraAccountID()
+		if ownAccountID != "" && ownAccountID == triggeredByUser {
+			log.Printf("⏭️ Skipping Jira webhook triggered by our own integration account (%s) — loop prevention", triggeredByUser)
+			c.JSON(200, gin.H{"status": "skipped", "reason": "triggered by own integration account"})
+			return
+		}
+	}
+
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(400, gin.H{"error": "Failed to read body"})
@@ -970,8 +1297,42 @@ func executeJiraCreateIssue(data map[string]interface{}, input json.RawMessage) 
 		return json.RawMessage(respBody), fmt.Sprintf("Jira API error %d: %s", resp.StatusCode, string(respBody))
 	}
 
+	// Merge the Jira API response with the original node config fields
+	// so downstream nodes can use {{project_key}}, {{summary}}, {{key}}, etc.
+	var jiraResp map[string]interface{}
+	json.Unmarshal(respBody, &jiraResp)
+
+	// Build enriched output: start with node config fields, then overlay Jira response
+	enrichedOutput := map[string]interface{}{}
+
+	// Copy useful node config fields (the values the user configured)
+	for _, field := range []string{"project_key", "summary", "description", "issue_type", "priority", "assignee", "labels"} {
+		if v, ok := data[field]; ok && v != nil && v != "" {
+			// Apply template replacement to get the resolved value
+			if s, ok := v.(string); ok {
+				enrichedOutput[field] = templateReplace(s, inputMap)
+			} else {
+				enrichedOutput[field] = v
+			}
+		}
+	}
+
+	// Overlay Jira response fields (id, key, self)
+	for k, v := range jiraResp {
+		enrichedOutput[k] = v
+	}
+
+	// Override self + add browse_url / link to point to the human-friendly browse URL
+	if key, ok := jiraResp["key"].(string); ok && domain != "" {
+		browseURL := fmt.Sprintf("https://%s/browse/%s", domain, key)
+		enrichedOutput["self"] = browseURL       // override REST API URL with browse URL
+		enrichedOutput["browse_url"] = browseURL // keep explicit alias
+		enrichedOutput["link"] = browseURL       // convenience alias
+	}
+
+	output, _ := json.Marshal(enrichedOutput)
 	log.Printf("🎫 Jira issue created successfully in project %s", projectKey)
-	return json.RawMessage(respBody), ""
+	return json.RawMessage(output), ""
 }
 
 // buildJiraIssuePayload constructs the Jira issue creation payload

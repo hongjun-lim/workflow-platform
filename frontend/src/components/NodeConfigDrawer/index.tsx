@@ -41,7 +41,8 @@ function buildInitialFormData(
   }
 
   if (nodeType === "start") {
-    if (!data.trigger_type) data.trigger_type = "manual";
+    if (!data.trigger_type) data.trigger_type = "schedule";
+    if (!data.cron_schedule) data.cron_schedule = "";
   }
 
   return data;
@@ -98,7 +99,7 @@ export const NodeConfigDrawer = ({
         </div>
 
         {/* Delegate to node-specific config */}
-        {nodeType === "start" && <StartConfig />}
+        {nodeType === "start" && <StartConfig {...configProps} />}
         {nodeType === "jira_webhook" && <JiraWebhookConfig {...configProps} />}
         {nodeType === "http_request" && <HttpRequestConfig {...configProps} />}
         {nodeType === "jira_create_issue" && (

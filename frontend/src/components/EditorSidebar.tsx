@@ -7,10 +7,13 @@ import type {
 interface EditorSidebarProps {
   workflowName: string;
   setWorkflowName: (name: string) => void;
+  workflowStatus: string;
   runs: ApiWorkflowRun[];
   selectedRun: string | null;
   logs: ApiNodeLog[];
   isSaving: boolean;
+  hasChanges: boolean;
+  onSave: () => void;
   onPublish: () => void;
   onBack: () => void;
   onTestRun: () => void;
@@ -22,9 +25,12 @@ interface EditorSidebarProps {
 export const EditorSidebar = ({
   workflowName,
   setWorkflowName,
+  workflowStatus,
   runs,
   selectedRun,
   isSaving,
+  hasChanges,
+  onSave,
   onPublish,
   onBack,
   onTestRun,
@@ -54,12 +60,16 @@ export const EditorSidebar = ({
 
         <div className="section">
           <h3>Actions</h3>
-          <div className="save-indicator">
-            {isSaving ? "💾 Saving…" : "✅ Saved"}
-          </div>
-          <button onClick={onPublish} className="publish-btn">
-            🚀 Publish Workflow
-          </button>
+          {hasChanges && (
+            <button onClick={onSave} className="save-btn" disabled={isSaving}>
+              {isSaving ? "💾 Saving..." : "💾 Save"}
+            </button>
+          )}
+          {workflowStatus !== "active" && (
+            <button onClick={onPublish} className="publish-btn">
+              🚀 Publish Workflow
+            </button>
+          )}
           <button
             onClick={onTestRun}
             className="publish-btn"

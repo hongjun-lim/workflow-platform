@@ -582,7 +582,7 @@ body {
 
 .start-node-info {
   text-align: center;
-  padding: 40px 20px;
+  padding: 20px;
 }
 
 .start-node-info .start-node-icon {
@@ -602,6 +602,67 @@ body {
   color: #6b7280;
   line-height: 1.6;
   margin: 0 0 8px 0;
+}
+
+/* Start Trigger Config */
+.start-config {
+  padding: 4px 0;
+}
+
+.start-trigger-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.start-trigger-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.start-trigger-option:hover {
+  border-color: #c7d2fe;
+  background: #fafafe;
+}
+
+.start-trigger-option.active {
+  border-color: #4e40e5;
+  background: #eef2ff;
+}
+
+.start-trigger-option input[type="radio"] {
+  display: none;
+}
+
+.start-trigger-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.start-trigger-icon {
+  font-size: 20px;
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.start-trigger-content strong {
+  font-size: 14px;
+}
+
+.start-trigger-desc {
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 .config-node-id {
@@ -864,6 +925,29 @@ body {
   background: #e0e7ff;
 }
 
+.action-btn.run {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.action-btn.run:hover {
+  background: #d1fae5;
+}
+
+.action-btn.run:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.action-btn.trigger {
+  background: #fefce8;
+  color: #a16207;
+}
+
+.action-btn.trigger:hover {
+  background: #fef9c3;
+}
+
 .action-btn.delete {
   background: #fef2f2;
   color: #dc2626;
@@ -871,6 +955,199 @@ body {
 
 .action-btn.delete:hover {
   background: #fee2e2;
+}
+
+/* Trigger type badges */
+.badge-trigger-schedule {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.badge-trigger-trigger {
+  background: #fefce8;
+  color: #a16207;
+}
+
+.badge-trigger-manual {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.badge-trigger-cron {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.badge-trigger-webhook {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+/* ==================== Trigger Modal ==================== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.trigger-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 480px;
+  max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.trigger-modal h3 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+}
+
+.trigger-modal-subtitle {
+  margin: 0 0 20px 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.trigger-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.trigger-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.trigger-option:hover {
+  border-color: #c7d2fe;
+  background: #fafafe;
+}
+
+.trigger-option.active {
+  border-color: #4e40e5;
+  background: #eef2ff;
+}
+
+.trigger-option input[type="radio"] {
+  display: none;
+}
+
+.trigger-option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trigger-option-icon {
+  font-size: 20px;
+  position: absolute;
+  right: 16px;
+}
+
+.trigger-option-content strong {
+  font-size: 14px;
+}
+
+.trigger-option-desc {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.cron-config {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.cron-config label {
+  font-size: 13px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.cron-config select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 8px;
+  background: #fff;
+}
+
+.cron-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: monospace;
+  box-sizing: border-box;
+}
+
+.cron-help {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.trigger-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.trigger-cancel-btn {
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.trigger-cancel-btn:hover {
+  background: #f3f4f6;
+}
+
+.trigger-save-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #4e40e5;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.trigger-save-btn:hover {
+  background: #3b2fc9;
+}
+
+.trigger-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ==================== Editor Extras ==================== */
@@ -919,16 +1196,35 @@ body {
   transform: translateY(0);
 }
 
-.save-indicator {
-  padding: 8px 12px;
+.save-btn {
+  width: 100%;
+  padding: 10px;
   margin-bottom: 8px;
-  border-radius: 6px;
-  font-size: 13px;
+  border: none;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: white;
+  font-size: 14px;
   font-weight: 500;
-  color: #6b7280;
-  background: #f9fafb;
-  border: 1px solid rgba(28, 31, 35, 0.08);
-  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.save-btn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.save-btn:active {
+  transform: translateY(0);
 }
 
 /* ==================== Listing Header Actions ==================== */

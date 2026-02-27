@@ -7,6 +7,9 @@ export interface Workflow {
   nodes: unknown;
   edges: unknown;
   status: string;
+  trigger_type: string;
+  cron_schedule: string | null;
+  last_cron_run: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -75,6 +78,22 @@ export async function deleteWorkflow(id: string): Promise<void> {
     method: "DELETE",
   });
   if (!res.ok) throw new Error("Failed to delete workflow");
+}
+
+export async function updateWorkflowTrigger(
+  id: string,
+  triggerType: string,
+  cronSchedule?: string | null,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/workflows/${id}/trigger`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      trigger_type: triggerType,
+      cron_schedule: cronSchedule ?? null,
+    }),
+  });
+  if (!res.ok) throw new Error("Failed to update trigger");
 }
 
 // ---- Runs ----

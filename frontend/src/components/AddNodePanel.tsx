@@ -1,9 +1,11 @@
-import { useRef } from "react";
+import { useContext, useRef } from "react";
 import { useClientContext } from "@flowgram.ai/free-layout-editor";
 import { nodeTypesList } from "../constants/nodeTypes";
+import { NodeSelectionContext } from "../contexts/NodeSelectionContext";
 
 export const AddNodePanel = () => {
   const context = useClientContext();
+  const nodeSelectionContext = useContext(NodeSelectionContext);
   const nodeIdRef = useRef(2);
 
   const handleAddNode = (type: string, label: string) => {
@@ -20,6 +22,7 @@ export const AddNodePanel = () => {
       });
 
       nodeIdRef.current += 1;
+      nodeSelectionContext?.markAsChanged();
     } catch (error) {
       console.error("Failed to add node:", error);
     }

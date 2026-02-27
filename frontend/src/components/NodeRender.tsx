@@ -157,7 +157,6 @@ export const NodeRender = (props: WorkflowNodeProps) => {
   ].includes(nodeType);
 
   const handleNodeClick = () => {
-    if (nodeType === "start") return;
     if (nodeSelectionContext) {
       nodeSelectionContext.setSelectedNode(props.node);
     }
