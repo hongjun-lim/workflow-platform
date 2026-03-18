@@ -12,7 +12,9 @@
   "dependencies": {
     "@flowgram.ai/fixed-layout-editor": "^1.0.7",
     "@flowgram.ai/free-layout-editor": "^1.0.7",
+    "@types/js-yaml": "^4.0.9",
     "axios": "^1.13.5",
+    "js-yaml": "^4.1.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "reactflow": "^11.11.4",

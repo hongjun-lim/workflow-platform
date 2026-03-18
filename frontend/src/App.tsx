@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import type { ReactNode } from "react";
 import "@flowgram.ai/free-layout-editor/index.css";
 import {
   FreeLayoutEditorProvider,
@@ -13,21 +14,27 @@ import type {
 } from "@flowgram.ai/free-layout-editor";
 import WorkflowListing from "./WorkflowListing";
 import IntegrationSettings from "./IntegrationSettings";
+import EnvironmentSettings from "./EnvironmentSettings";
+import NodeSchemaManager from "./NodeSchemaManager";
 import {
   getWorkflow,
   updateWorkflow,
   getRuns as fetchRunsApi,
   getRunLogs as fetchRunLogsApi,
   runWorkflow as runWorkflowApi,
+  getEnvironments,
+  setWorkflowActiveEnv,
 } from "./api";
 import type {
   WorkflowRun as ApiWorkflowRun,
   NodeLog as ApiNodeLog,
+  Environment,
 } from "./api";
 import "./App.css";
 
 import { nodeTypesList } from "./constants/nodeTypes";
 import { NodeSelectionContext } from "./contexts/NodeSelectionContext";
+import { NodeSchemasProvider } from "./contexts/NodeSchemasProvider";
 import { NodeRender } from "./components/NodeRender";
 import { Tools } from "./components/Tools";
 import { EditorSidebar } from "./components/EditorSidebar";
@@ -66,6 +73,8 @@ const WorkflowEditor = ({ workflowId, onBack }: WorkflowEditorProps) => {
   const [hasChanges, setHasChanges] = useState(false);
   const [loadedData, setLoadedData] = useState<WorkflowJSON | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [activeEnvId, setActiveEnvId] = useState<string | null>(null);
 
   const editorContextRef = useRef<FreeLayoutPluginContext | null>(null);
   const workflowNameRef = useRef(workflowName);
@@ -89,6 +98,7 @@ const WorkflowEditor = ({ workflowId, onBack }: WorkflowEditorProps) => {
         if (cancelled) return;
         setWorkflowName(wf.name);
         setWorkflowStatus(wf.status || "draft");
+        setActiveEnvId(wf.active_env_id ?? null);
 
         let nodes: unknown[] = [];
         let edges: unknown[] = [];
@@ -117,6 +127,24 @@ const WorkflowEditor = ({ workflowId, onBack }: WorkflowEditorProps) => {
       cancelled = true;
     };
   }, [workflowId]);
+
+  // Fetch available environments
+  useEffect(() => {
+    getEnvironments().then(setEnvironments).catch(console.error);
+  }, []);
+
+  // Switch active environment for this workflow
+  const handleEnvSwitch = useCallback(
+    async (envId: string | null) => {
+      setActiveEnvId(envId);
+      try {
+        await setWorkflowActiveEnv(workflowId, envId);
+      } catch (err) {
+        console.error("Failed to switch env:", err);
+      }
+    },
+    [workflowId],
+  );
 
   // Helper: merge custom node data into toJSON() nodes (which have correct positions)
   const buildNodesForSave = (ctx: FreeLayoutPluginContext) => {
@@ -405,6 +433,9 @@ const WorkflowEditor = ({ workflowId, onBack }: WorkflowEditorProps) => {
             logs={logs}
             isSaving={isSaving}
             hasChanges={hasChanges}
+            environments={environments}
+            activeEnvId={activeEnvId}
+            onEnvSwitch={handleEnvSwitch}
             onSave={saveToApi}
             onPublish={handlePublish}
             onBack={onBack}
@@ -443,31 +474,45 @@ const WorkflowEditor = ({ workflowId, onBack }: WorkflowEditorProps) => {
 type Page =
   | { view: "listing" }
   | { view: "editor"; workflowId: string }
-  | { view: "settings" };
+  | { view: "settings" }
+  | { view: "environments" }
+  | { view: "node-schemas" };
 
 function App() {
   const [page, setPage] = useState<Page>({ view: "listing" });
 
+  let content: ReactNode;
+
   if (page.view === "editor") {
-    return (
+    content = (
       <WorkflowEditor
         key={page.workflowId}
         workflowId={page.workflowId}
         onBack={() => setPage({ view: "listing" })}
       />
     );
+  } else if (page.view === "settings") {
+    content = (
+      <IntegrationSettings onBack={() => setPage({ view: "listing" })} />
+    );
+  } else if (page.view === "environments") {
+    content = (
+      <EnvironmentSettings onBack={() => setPage({ view: "listing" })} />
+    );
+  } else if (page.view === "node-schemas") {
+    content = <NodeSchemaManager onBack={() => setPage({ view: "listing" })} />;
+  } else {
+    content = (
+      <WorkflowListing
+        onOpenWorkflow={(id) => setPage({ view: "editor", workflowId: id })}
+        onOpenSettings={() => setPage({ view: "settings" })}
+        onOpenEnvironments={() => setPage({ view: "environments" })}
+        onOpenNodeSchemas={() => setPage({ view: "node-schemas" })}
+      />
+    );
   }
 
-  if (page.view === "settings") {
-    return <IntegrationSettings onBack={() => setPage({ view: "listing" })} />;
-  }
-
-  return (
-    <WorkflowListing
-      onOpenWorkflow={(id) => setPage({ view: "editor", workflowId: id })}
-      onOpenSettings={() => setPage({ view: "settings" })}
-    />
-  );
+  return <NodeSchemasProvider>{content}</NodeSchemasProvider>;
 }
 
 export default App;

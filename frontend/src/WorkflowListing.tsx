@@ -4,20 +4,28 @@ import {
   createWorkflow,
   deleteWorkflow,
   runWorkflow,
+  getEnvironments,
+  setWorkflowActiveEnv,
   type Workflow,
+  type Environment,
 } from "./api";
 
 interface WorkflowListingProps {
+  onOpenNodeSchemas: () => void;
   onOpenWorkflow: (workflowId: string) => void;
   onOpenSettings: () => void;
+  onOpenEnvironments: () => void;
 }
 
 export default function WorkflowListing({
   onOpenWorkflow,
   onOpenSettings,
+  onOpenEnvironments,
+  onOpenNodeSchemas,
 }: WorkflowListingProps) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [environments, setEnvironments] = useState<Environment[]>([]);
 
   const fetchWorkflows = useCallback(async () => {
     try {
@@ -33,7 +41,21 @@ export default function WorkflowListing({
 
   useEffect(() => {
     fetchWorkflows();
+    getEnvironments().then(setEnvironments).catch(console.error);
   }, [fetchWorkflows]);
+
+  const handleEnvChange = async (workflowId: string, envId: string | null) => {
+    try {
+      await setWorkflowActiveEnv(workflowId, envId);
+      setWorkflows((prev) =>
+        prev.map((w) =>
+          w.id === workflowId ? { ...w, active_env_id: envId } : w,
+        ),
+      );
+    } catch (err) {
+      console.error("Failed to switch env:", err);
+    }
+  };
 
   const handleCreate = async () => {
     try {
@@ -125,9 +147,17 @@ export default function WorkflowListing({
       <div className="listing-page">
         <div className="listing-header">
           <h1>Workflows</h1>
-          <button className="settings-btn" onClick={onOpenSettings}>
-            ⚙️ Integrations
-          </button>
+          <div className="listing-header-actions">
+            <button className="settings-btn" onClick={onOpenEnvironments}>
+              🌐 Environments
+            </button>
+            <button className="settings-btn" onClick={onOpenNodeSchemas}>
+              🧩 Node Types
+            </button>
+            <button className="settings-btn" onClick={onOpenSettings}>
+              ⚙️ Integrations
+            </button>
+          </div>
         </div>
         <div className="empty-state">
           <div className="empty-icon">🔧</div>
@@ -146,6 +176,12 @@ export default function WorkflowListing({
       <div className="listing-header">
         <h1>Workflows</h1>
         <div className="listing-header-actions">
+          <button className="settings-btn" onClick={onOpenEnvironments}>
+            🌐 Environments
+          </button>
+          <button className="settings-btn" onClick={onOpenNodeSchemas}>
+            🧩 Node Types
+          </button>
           <button className="settings-btn" onClick={onOpenSettings}>
             ⚙️ Integrations
           </button>
@@ -164,6 +200,7 @@ export default function WorkflowListing({
               <tr>
                 <th>Name</th>
                 <th>Status</th>
+                <th>Env</th>
                 <th>Trigger</th>
                 <th>Updated</th>
                 <th style={{ width: 200 }}>Actions</th>
@@ -180,6 +217,26 @@ export default function WorkflowListing({
                       <span className={`badge badge-${w.status}`}>
                         {w.status}
                       </span>
+                    </td>
+                    <td>
+                      {environments.length > 0 ? (
+                        <select
+                          className="env-select"
+                          value={w.active_env_id ?? ""}
+                          onChange={(e) =>
+                            handleEnvChange(w.id, e.target.value || null)
+                          }
+                        >
+                          <option value="">— None —</option>
+                          {environments.map((env) => (
+                            <option key={env.id} value={env.id}>
+                              {env.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="env-none">—</span>
+                      )}
                     </td>
                     <td>
                       <span className={`badge badge-trigger-${tt}`}>

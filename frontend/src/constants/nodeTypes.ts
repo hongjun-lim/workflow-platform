@@ -23,6 +23,7 @@ export const nodeTypesList: NodeTypeInfo[] = [
   { type: "condition", label: "Condition", icon: "🔀" },
   { type: "transform", label: "Transform Data", icon: "🔄" },
   { type: "delay", label: "Delay", icon: "⏱️" },
+  { type: "datadog_event", label: "Datadog Event", icon: "🐶" },
   { type: "end", label: "Output", icon: "📤" },
 ];
 
@@ -36,5 +37,6 @@ export const nodeColors: Record<string, string> = {
   condition: "#ed8936",
   transform: "#48bb78",
   delay: "#9f7aea",
+  datadog_event: "#632CA6",
   end: "#f56565",
 };

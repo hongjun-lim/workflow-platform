@@ -10,6 +10,7 @@ export interface Workflow {
   trigger_type: string;
   cron_schedule: string | null;
   last_cron_run: string | null;
+  active_env_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -232,4 +233,159 @@ export async function dryRunNode(
   });
   if (!res.ok) throw new Error("Dry-run request failed");
   return res.json();
+}
+
+// ---- Environments ----
+
+export interface Environment {
+  id: string;
+  name: string;
+  variables: Record<string, string>;
+  color: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getEnvironments(): Promise<Environment[]> {
+  const res = await fetch(`${API_BASE}/environments`);
+  if (!res.ok) throw new Error("Failed to fetch environments");
+  const data = await res.json();
+  return data ?? [];
+}
+
+export async function createEnvironment(
+  name: string,
+  variables: Record<string, string>,
+  color: string,
+  isDefault: boolean,
+): Promise<{ id: string }> {
+  const res = await fetch(`${API_BASE}/environments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, variables, color, is_default: isDefault }),
+  });
+  if (!res.ok) throw new Error("Failed to create environment");
+  return res.json();
+}
+
+export async function updateEnvironment(
+  id: string,
+  name: string,
+  variables: Record<string, string>,
+  color: string,
+  isDefault: boolean,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/environments/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, variables, color, is_default: isDefault }),
+  });
+  if (!res.ok) throw new Error("Failed to update environment");
+}
+
+export async function deleteEnvironment(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/environments/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete environment");
+}
+
+export async function setWorkflowActiveEnv(
+  workflowId: string,
+  envId: string | null,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/workflows/${workflowId}/env`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ env_id: envId }),
+  });
+  if (!res.ok) throw new Error("Failed to set workflow environment");
+}
+
+// ---- Node Schemas ----
+
+export interface SchemaFieldOption {
+  label: string;
+  value: string;
+}
+
+export interface SchemaFieldShowIf {
+  field: string;
+  value: string; // comma-separated for multiple values
+}
+
+export interface SchemaField {
+  key: string;
+  label: string;
+  type:
+    | "text"
+    | "textarea"
+    | "number"
+    | "select"
+    | "checkbox"
+    | "password"
+    | "code";
+  required?: boolean;
+  default?: string;
+  placeholder?: string;
+  hint?: string;
+  group?: string; // section header, "" = default section
+  options?: SchemaFieldOption[];
+  show_if?: SchemaFieldShowIf;
+}
+
+export interface ExecuteConfig {
+  url: string;
+  method: string;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+export interface NodeSchema {
+  type: string;
+  label: string;
+  icon: string;
+  color: string;
+  category: string;
+  description: string;
+  auth_type: string | null;
+  fields: SchemaField[];
+  execute_config: ExecuteConfig | null;
+  is_trigger: boolean;
+  is_builtin: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getNodeSchemas(): Promise<NodeSchema[]> {
+  const res = await fetch(`${API_BASE}/node-schemas`);
+  if (!res.ok) throw new Error("Failed to fetch node schemas");
+  const data = await res.json();
+  return data ?? [];
+}
+
+export async function getNodeSchema(type: string): Promise<NodeSchema> {
+  const res = await fetch(`${API_BASE}/node-schemas/${type}`);
+  if (!res.ok) throw new Error("Node schema not found");
+  return res.json();
+}
+
+export async function upsertNodeSchema(
+  type: string,
+  schema: Omit<NodeSchema, "type" | "is_builtin" | "created_at" | "updated_at">,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/node-schemas/${type}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(schema),
+  });
+  if (!res.ok) throw new Error("Failed to save node schema");
+}
+
+export async function deleteNodeSchema(type: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/node-schemas/${type}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete node schema");
 }

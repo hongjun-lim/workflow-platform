@@ -2,6 +2,7 @@ import { AddNodePanel } from "./AddNodePanel";
 import type {
   WorkflowRun as ApiWorkflowRun,
   NodeLog as ApiNodeLog,
+  Environment,
 } from "../api";
 
 interface EditorSidebarProps {
@@ -13,6 +14,9 @@ interface EditorSidebarProps {
   logs: ApiNodeLog[];
   isSaving: boolean;
   hasChanges: boolean;
+  environments: Environment[];
+  activeEnvId: string | null;
+  onEnvSwitch: (envId: string | null) => void;
   onSave: () => void;
   onPublish: () => void;
   onBack: () => void;
@@ -30,6 +34,9 @@ export const EditorSidebar = ({
   selectedRun,
   isSaving,
   hasChanges,
+  environments,
+  activeEnvId,
+  onEnvSwitch,
   onSave,
   onPublish,
   onBack,
@@ -57,6 +64,40 @@ export const EditorSidebar = ({
         </div>
 
         <AddNodePanel />
+
+        {environments.length > 0 && (
+          <div className="section">
+            <h3>Environment</h3>
+            <div className="env-toggle">
+              {environments.map((env) => (
+                <button
+                  key={env.id}
+                  className={`env-toggle-btn${activeEnvId === env.id ? " active" : ""}`}
+                  style={
+                    activeEnvId === env.id
+                      ? {
+                          borderColor: env.color,
+                          background: env.color + "18",
+                          color: env.color,
+                        }
+                      : {}
+                  }
+                  onClick={() =>
+                    onEnvSwitch(activeEnvId === env.id ? null : env.id)
+                  }
+                >
+                  <span className="env-dot" style={{ background: env.color }} />
+                  {env.name}
+                </button>
+              ))}
+            </div>
+            {activeEnvId && (
+              <div className="env-active-hint">
+                Env variables will be resolved on run
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="section">
           <h3>Actions</h3>

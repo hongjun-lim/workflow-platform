@@ -6,6 +6,7 @@ import {
 import type { WorkflowNodeProps } from "@flowgram.ai/free-layout-editor";
 import { nodeTypesList, nodeColors } from "../constants/nodeTypes";
 import { NodeSelectionContext } from "../contexts/NodeSelectionContext";
+import { useNodeSchemas } from "../contexts/useNodeSchemas";
 
 // Helper: build summary lines for a node based on its type and data
 export function getNodeSummaryLines(
@@ -148,6 +149,18 @@ export const NodeRender = (props: WorkflowNodeProps) => {
   const borderColor = selected ? "#4e40e5" : "rgba(6, 7, 9, 0.15)";
   const accentColor = nodeColors[nodeType] || "#4e40e5";
   const nodeSelectionContext = useContext(NodeSelectionContext);
+  const { schemas } = useNodeSchemas();
+
+  // Look up icon/label from API schemas first, then fall back to hardcoded list
+  const apiSchema = schemas.find((s) => s.type === nodeType);
+  const nodeIcon =
+    apiSchema?.icon ||
+    nodeTypesList.find((n) => n.type === nodeType)?.icon ||
+    "📦";
+  const nodeLabel =
+    apiSchema?.label ||
+    nodeTypesList.find((n) => n.type === nodeType)?.label ||
+    nodeType;
 
   // Node types that support dry-run testing
   const canDryRun = [
@@ -209,14 +222,8 @@ export const NodeRender = (props: WorkflowNodeProps) => {
         }}
         onClick={handleNodeClick}
       >
-        <span>
-          {nodeTypesList.find((n) => n.type === nodeType)?.icon || "📦"}
-        </span>
-        <span style={{ flex: 1 }}>
-          {customTitle ||
-            nodeTypesList.find((n) => n.type === nodeType)?.label ||
-            nodeType}
-        </span>
+        <span>{nodeIcon}</span>
+        <span style={{ flex: 1 }}>{customTitle || nodeLabel}</span>
         {canDryRun && (
           <button
             onClick={handleDryRun}

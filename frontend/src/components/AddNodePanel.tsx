@@ -1,12 +1,34 @@
-import { useContext, useRef } from "react";
+import { useContext, useRef, useMemo } from "react";
 import { useClientContext } from "@flowgram.ai/free-layout-editor";
 import { nodeTypesList } from "../constants/nodeTypes";
 import { NodeSelectionContext } from "../contexts/NodeSelectionContext";
+import { useNodeSchemas } from "../contexts/useNodeSchemas";
 
 export const AddNodePanel = () => {
   const context = useClientContext();
   const nodeSelectionContext = useContext(NodeSelectionContext);
   const nodeIdRef = useRef(2);
+  const { schemas } = useNodeSchemas();
+
+  // Merge: start from hardcoded list, override icon/label with API data,
+  // then append any custom (non-builtin) schemas not already in the list.
+  const mergedNodes = useMemo(() => {
+    const schemaMap = new Map(schemas.map((s) => [s.type, s]));
+
+    // Override icon/label for existing types
+    const updated = nodeTypesList.map((n) => {
+      const api = schemaMap.get(n.type);
+      return api ? { ...n, icon: api.icon, label: api.label } : n;
+    });
+
+    // Append custom nodes from API that aren't in the hardcoded list
+    const builtinTypes = new Set(nodeTypesList.map((n) => n.type));
+    const custom = schemas
+      .filter((s) => !builtinTypes.has(s.type))
+      .map((s) => ({ type: s.type, label: s.label, icon: s.icon }));
+
+    return [...updated, ...custom];
+  }, [schemas]);
 
   const handleAddNode = (type: string, label: string) => {
     try {
@@ -31,7 +53,7 @@ export const AddNodePanel = () => {
   return (
     <div className="section">
       <h3>Add Node</h3>
-      {nodeTypesList.map((node) => (
+      {mergedNodes.map((node) => (
         <button
           key={node.type}
           onClick={() => handleAddNode(node.type, node.label)}
